@@ -184,16 +184,16 @@ namespace ToolsNetOpenProtocolClient
             var spindleNumber = "0001";
             var spindleSerialNumber = "SPINDLEICT".PadLeft(10, ' ');
             var programNumber = "0001";
-            var overallStatus = "0"; //0: OK - 1: NOK
+            var overallStatus = "1"; //0: OK - 1: NOK
             var torqueLowLimit = "00004.00";
-            var finalTorque = "00004.95";
-            var torqueStatus = "0"; //0: OK - 1: NOK - 2: Low - 3: High
+            var finalTorque = "00007.00";
+            var torqueStatus = "3"; //0: OK - 1: NOK - 2: Low - 3: High
             var torqueHighLimit = "00006.00";
             var angleLowLimit = "000040.0";
-            var finalAngle = "000049.5";
-            var angleStatus = "0"; //0: OK - 1: NOK - 2: Low - 3: High
+            var finalAngle = "000039.5";
+            var angleStatus = "2"; //0: OK - 1: NOK - 2: Low - 3: High
             var angleHighLimit = "000060.0";
-            var timeStatus = "0"; //0: OK - 1: NOK - 2: Low - 3: High
+            var timeStatus = "1"; //0: OK - 1: NOK - 2: Low - 3: High
 
             //Additional VIN:
             var vinIdentifier1 = "0001";
@@ -206,7 +206,7 @@ namespace ToolsNetOpenProtocolClient
             var parameterProgramNumber = "0000";
             var parameterId = "00001";
             var parameterName = "PARAMETER ICT - TIME".PadLeft(25, ' ');
-            var parameterValue = "12.754".PadLeft(25, ' ');
+            var parameterValue = "12.754".PadLeft(25, ' '); //ToolsNet seems to show only 2 decimals on Real >> Sent 12.754, Shown 12.75
             var parameterType = "2"; //0: String - 1: Integer - 2: Real
             var parameterUnit = "seg".PadLeft(6, ' ');
             var parameterStep = "00";
@@ -262,6 +262,20 @@ namespace ToolsNetOpenProtocolClient
             return telegram;
         }
 
+        string EncodeTelegram06_KeepAlive()
+        {
+            var length = "0007";
+            var command = "06"; //Pim Info Request
+            identifierSent++;
+            var tmpIdentifier = identifierSent.ToString().PadLeft(5, '0');
+
+            var telegram = length + command + tmpIdentifier;
+            txtToolsnetCommunication.Text += "Controller >> Server [06]: length: " + length + ", Command: " + command + ", Identifier: " + tmpIdentifier +
+                                        " /// Raw Message: " + telegram;
+            txtToolsnetCommunication.Text += Environment.NewLine;
+            return telegram;
+        }
+
         string EncodeTelegram07_PimInfoRequest()
         {
             var length = "0019";
@@ -311,14 +325,14 @@ namespace ToolsNetOpenProtocolClient
             var currentDateTime = DateTime.Now.ToString("yyyyMMddHHmmss");
             eventSequenceNumber++;
             var tmpEventSequenceNumber = eventSequenceNumber.ToString().PadLeft(5, '0');
-            var errorCode = "00139"; //0-99999 ?
-            var eventLevel = "010"; //0-999 ?
-            var numberOfEventParameters = "01"; //1-99
+            var errorCode = "04020"; //0-99999 >>>> codes defined on toolsnet database?
+            var eventLevel = "010"; //0-999 >>>> codes defined on toolsnet database? >>>> Error / Info / Warning / others?
+            var numberOfEventParameters = "02"; //1-99
 
             var eventParameterId1 = "123";
             var eventParameterValueType1 = "5"; //1-9 ?
             var eventParameterValue1 = "EVENT PARAM ICT 1".PadLeft(20, ' ');
-            
+
             var eventParameterId2 = "321";
             var eventParameterValueType2 = "1"; //1-9 ?
             var eventParameterValue2 = "EVENT PARAM ICT 2".PadLeft(20, ' ');
@@ -365,6 +379,7 @@ namespace ToolsNetOpenProtocolClient
                 data = EncodeTelegram02_StationDescription();
                 data = EncodeTelegram04_Result();
                 data = EncodeTelegram09_ErrorEvent();
+                data = EncodeTelegram06_KeepAlive();
             }
             else
             {
@@ -408,7 +423,6 @@ namespace ToolsNetOpenProtocolClient
                     DecodeTelegramToolsnet05_Ack(data);
                     Application.DoEvents();
 
-                    /*
                     //6. Send Telegram 04 (Result):
                     data = EncodeTelegram04_Result();
                     byte[] outStream04 = System.Text.Encoding.ASCII.GetBytes(data);
@@ -423,8 +437,7 @@ namespace ToolsNetOpenProtocolClient
                     data = System.Text.Encoding.ASCII.GetString(inStream05_3);
                     DecodeTelegramToolsnet05_Ack(data);
                     Application.DoEvents();
-                    */
-
+                    
                     //8. Send Telegram 09 (Error Event):
                     data = EncodeTelegram09_ErrorEvent();
                     byte[] outStream08 = System.Text.Encoding.ASCII.GetBytes(data);
@@ -440,7 +453,28 @@ namespace ToolsNetOpenProtocolClient
                     DecodeTelegramToolsnet05_Ack(data);
                     Application.DoEvents();
 
-                    //10. Controller Closes Connection to Server:
+                    //test KeepAlive 3 times, every 5 seconds:
+                    for (int i = 0; i < 3; i++)
+                    {
+                        //10. Send Telegram 06 (KeepAlive):
+                        data = EncodeTelegram06_KeepAlive();
+                        byte[] outStream06 = System.Text.Encoding.ASCII.GetBytes(data);
+                        serverStream.Write(outStream06, 0, outStream06.Length);
+                        serverStream.Flush();
+                        Application.DoEvents();
+                        Thread.Sleep(1000);
+
+                        //11. get Telegram 05 (Ack):
+                        byte[] inStream05_5 = new byte[65537];
+                        serverStream.Read(inStream05_5, 0, (int)toolsnetClientSocket.ReceiveBufferSize);
+                        data = System.Text.Encoding.ASCII.GetString(inStream05_5);
+                        DecodeTelegramToolsnet05_Ack(data);
+                        Application.DoEvents();
+
+                        Thread.Sleep(5000);
+                    }
+
+                    //12. Controller Closes Connection to Server:
                     serverStream.Close();
                     toolsnetClientSocket.Close();
                     txtToolsnetCommunication.Text += "Client Socket Program - Connection Closed...";
