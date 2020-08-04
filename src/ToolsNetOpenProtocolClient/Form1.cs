@@ -106,6 +106,132 @@ namespace ToolsNetOpenProtocolClient
             }
         }
 
+        private void btnToolsnetOpenCloseConnection_Click(object sender, EventArgs e)
+        {
+            if (cmbControllerIpAddress.SelectedIndex == 0)
+            {
+                MessageBox.Show("Set Controller IP address");
+                cmbControllerIpAddress.Focus();
+                return;
+            }
+
+            string data = "";
+            txtToolsnetCommunication.Text = "";
+            if (chkSimulateControllerMessages.Checked)
+            {
+                data = EncodeTelegram01_SystemDescription();
+                data = EncodeTelegram02_StationDescription();
+                data = EncodeTelegram04_Result();
+                data = EncodeTelegram09_ErrorEvent();
+                data = EncodeTelegram13_Graph();
+                data = EncodeTelegram06_KeepAlive();
+            }
+            else
+            {
+                try
+                {
+                    toolsnetClientSocket = new System.Net.Sockets.TcpClient();
+
+                    //1. Controller connects to ToolsNet
+                    toolsnetClientSocket.Connect(txtToolsnetIpAdress.Text.Trim(), int.Parse(txtToolsnetPortNumber.Text));
+                    NetworkStream serverStream = toolsnetClientSocket.GetStream();
+                    txtToolsnetCommunication.Text = "Client Socket Program - Server Connected ..." + Environment.NewLine;
+                    Application.DoEvents();
+
+                    //2. send Telegam 01 (System Description):
+                    data = EncodeTelegram01_SystemDescription();
+                    byte[] outStream01 = System.Text.Encoding.ASCII.GetBytes(data);
+                    serverStream.Write(outStream01, 0, outStream01.Length);
+                    serverStream.Flush();
+                    Application.DoEvents();
+                    Thread.Sleep(1000);
+
+                    //3. get Telegram 05 (Ack):
+                    byte[] inStream05_1 = new byte[65537];
+                    serverStream.Read(inStream05_1, 0, (int)toolsnetClientSocket.ReceiveBufferSize);
+                    data = System.Text.Encoding.ASCII.GetString(inStream05_1);
+                    DecodeTelegramToolsnet05_Ack(data);
+                    Application.DoEvents();
+
+                    //4. Send Telegram 02 (Station Description):
+                    data = EncodeTelegram02_StationDescription();
+                    byte[] outStream02 = System.Text.Encoding.ASCII.GetBytes(data);
+                    serverStream.Write(outStream02, 0, outStream02.Length);
+                    serverStream.Flush();
+                    Application.DoEvents();
+                    Thread.Sleep(1000);
+
+                    //5. get Telegram 05 (Ack):
+                    byte[] inStream05_2 = new byte[65537];
+                    serverStream.Read(inStream05_2, 0, (int)toolsnetClientSocket.ReceiveBufferSize);
+                    data = System.Text.Encoding.ASCII.GetString(inStream05_2);
+                    DecodeTelegramToolsnet05_Ack(data);
+                    Application.DoEvents();
+
+                    //6. Send Telegram 04 (Result):
+                    data = EncodeTelegram04_Result();
+                    byte[] outStream04 = System.Text.Encoding.ASCII.GetBytes(data);
+                    serverStream.Write(outStream04, 0, outStream04.Length);
+                    serverStream.Flush();
+                    Application.DoEvents();
+                    Thread.Sleep(1000);
+
+                    //7. get Telegram 05 (Ack):
+                    byte[] inStream05_3 = new byte[65537];
+                    serverStream.Read(inStream05_3, 0, (int)toolsnetClientSocket.ReceiveBufferSize);
+                    data = System.Text.Encoding.ASCII.GetString(inStream05_3);
+                    DecodeTelegramToolsnet05_Ack(data);
+                    Application.DoEvents();
+
+                    //8. Send Telegram 09 (Error Event):
+                    data = EncodeTelegram09_ErrorEvent();
+                    byte[] outStream08 = System.Text.Encoding.ASCII.GetBytes(data);
+                    serverStream.Write(outStream08, 0, outStream08.Length);
+                    serverStream.Flush();
+                    Application.DoEvents();
+                    Thread.Sleep(1000);
+
+                    //9. get Telegram 05 (Ack):
+                    byte[] inStream05_4 = new byte[65537];
+                    serverStream.Read(inStream05_4, 0, (int)toolsnetClientSocket.ReceiveBufferSize);
+                    data = System.Text.Encoding.ASCII.GetString(inStream05_4);
+                    DecodeTelegramToolsnet05_Ack(data);
+                    Application.DoEvents();
+
+                    /*
+                    //test KeepAlive 3 times, every 5 seconds:
+                    for (int i = 0; i < 3; i++)
+                    {
+                        //10. Send Telegram 06 (KeepAlive):
+                        data = EncodeTelegram06_KeepAlive();
+                        byte[] outStream06 = System.Text.Encoding.ASCII.GetBytes(data);
+                        serverStream.Write(outStream06, 0, outStream06.Length);
+                        serverStream.Flush();
+                        Application.DoEvents();
+                        Thread.Sleep(1000);
+
+                        //11. get Telegram 05 (Ack):
+                        byte[] inStream05_5 = new byte[65537];
+                        serverStream.Read(inStream05_5, 0, (int)toolsnetClientSocket.ReceiveBufferSize);
+                        data = System.Text.Encoding.ASCII.GetString(inStream05_5);
+                        DecodeTelegramToolsnet05_Ack(data);
+                        Application.DoEvents();
+
+                        Thread.Sleep(5000);
+                    }
+                    */
+                    //12. Controller Closes Connection to Server:
+                    serverStream.Close();
+                    toolsnetClientSocket.Close();
+                    txtToolsnetCommunication.Text += "Client Socket Program - Connection Closed...";
+                }
+                catch (Exception exc)
+                {
+                    txtToolsnetCommunication.Text += Environment.NewLine + "ERROR - Telegram: " + data + " - Message: " + exc.Message;
+                }
+            }
+        }
+
         string EncodeTelegram01_SystemDescription()
         {
             var length = "0057";
@@ -185,14 +311,14 @@ namespace ToolsNetOpenProtocolClient
             var spindleSerialNumber = "SPINDLEICT".PadLeft(10, ' ');
             var programNumber = "0001";
             var overallStatus = "1"; //0: OK - 1: NOK
-            var torqueLowLimit = "00004.00";
-            var finalTorque = "00007.00";
+            var torqueLowLimit = "00009.00";
+            var finalTorque = "00008.00";
             var torqueStatus = "3"; //0: OK - 1: NOK - 2: Low - 3: High
-            var torqueHighLimit = "00006.00";
-            var angleLowLimit = "000040.0";
-            var finalAngle = "000039.5";
+            var torqueHighLimit = "00010.00";
+            var angleLowLimit = "000050.0";
+            var finalAngle = "000049.5";
             var angleStatus = "2"; //0: OK - 1: NOK - 2: Low - 3: High
-            var angleHighLimit = "000060.0";
+            var angleHighLimit = "000070.0";
             var timeStatus = "1"; //0: OK - 1: NOK - 2: Low - 3: High
 
             //Additional VIN:
@@ -222,7 +348,7 @@ namespace ToolsNetOpenProtocolClient
 
             txtToolsnetCommunication.Text += "Controller >> Server [02]: length: " + length + ", Command: " + command + ", Identifier: " + tmpIdentifier +
                                         ", System Type: " + systemType + ", System Number: " + systemNumber + ", Station Number: " + StationNumber +
-                                        " [TOO MUCH INFO] /// Raw Message: " + telegram;
+                                        " [OTHER INFO] /// Raw Message: " + telegram;
 
             txtToolsnetCommunication.Text += Environment.NewLine;
             return telegram;
@@ -253,7 +379,6 @@ namespace ToolsNetOpenProtocolClient
             identifierPim = telegram.Substring(6, 5);
             var currentDateTime = telegram.Substring(11, 14);
             var errorCode = telegram.Substring(25, 3);
-
 
             txtToolsnetCommunication.Text += "Server >> Controller [05]: length: " + length + ", Command: " + command + ", Identifier: " + identifierPim +
                                         ", Datetime: " + currentDateTime + ", Error Code: " + errorCode + " /// Raw Message: " + telegram;
@@ -292,6 +417,7 @@ namespace ToolsNetOpenProtocolClient
                                         " /// Raw Message: " + telegram + Environment.NewLine;
             return telegram;
         }
+
         void DecodeTelegram08_PimInfoTelegram(string telegram)
         {
             var length = telegram.Substring(0, 4);
@@ -307,11 +433,10 @@ namespace ToolsNetOpenProtocolClient
             txtToolsnetPortNumber.Text = int.Parse(toolsnetServerPort).ToString();
 
             txtPimCommunication.Text += "Server >> Controller [08]: length: " + length + ", Command: " + command + ", Identifier: " + identifierPim +
-                                        ", result Seq. Number: " + resultSequenceNumber + ", Event Seq. NUmber: " + eventSequenceNumber +
+                                        ", result Seq. Number: " + resultSequenceNumber + ", Event Seq. Number: " + eventSequenceNumber +
                                         ", ToolsNet IP:Port: " + toolsnetServerIp + ":" + toolsnetServerPort + " /// Raw Message: " + telegram;
             txtPimCommunication.Text += Environment.NewLine;
         }
-
 
         string EncodeTelegram09_ErrorEvent()
         {
@@ -325,17 +450,16 @@ namespace ToolsNetOpenProtocolClient
             var currentDateTime = DateTime.Now.ToString("yyyyMMddHHmmss");
             eventSequenceNumber++;
             var tmpEventSequenceNumber = eventSequenceNumber.ToString().PadLeft(5, '0');
-            var errorCode = "04020"; //0-99999 >>>> codes defined on toolsnet database?
-            var eventLevel = "010"; //0-999 >>>> codes defined on toolsnet database? >>>> Error / Info / Warning / others?
+            var errorCode = "00001"; //0-99999 >>>> codes defined on toolsnet database?
+            var eventLevel = "001"; //0-999 >>>> codes defined on toolsnet database? >>>> Error / Info / Warning / others?
             var numberOfEventParameters = "02"; //1-99
 
-            var eventParameterId1 = "123";
-            var eventParameterValueType1 = "5"; //1-9 ?
-            var eventParameterValue1 = "EVENT PARAM ICT 1".PadLeft(20, ' ');
-
-            var eventParameterId2 = "321";
-            var eventParameterValueType2 = "1"; //1-9 ?
-            var eventParameterValue2 = "EVENT PARAM ICT 2".PadLeft(20, ' ');
+            var eventParameterId1 = "002"; //001 and 003 aren't saved on database, why?
+            var eventParameterValueType1 = "2"; //1-9 ?
+            var eventParameterValue1 = "EVENT PARAM ICT 2".PadLeft(20, ' ');
+            var eventParameterId2 = "004";
+            var eventParameterValueType2 = "4"; //1-9 ?
+            var eventParameterValue2 = "EVENT PARAM ICT 4".PadLeft(20, ' ');
 
             var telegram = length + command + tmpIdentifier + systemType + systemNumber + StationNumber + currentDateTime +
                            tmpEventSequenceNumber + errorCode + eventLevel + numberOfEventParameters +
@@ -344,12 +468,15 @@ namespace ToolsNetOpenProtocolClient
 
             txtToolsnetCommunication.Text += "Controller >> Server [02]: length: " + length + ", Command: " + command + ", Identifier: " + tmpIdentifier +
                                         ", System Type: " + systemType + ", System Number: " + systemNumber + ", Station Number: " + StationNumber +
-                                        " [TOO MUCH INFO] /// Raw Message: " + telegram;
+                                        " [OTHER INFO] /// Raw Message: " + telegram;
 
             txtToolsnetCommunication.Text += Environment.NewLine;
             return telegram;
         }
 
+        //TODO: Error Event Acknowledge telegram - '10'
+
+        //TODO: PIM FSH Info Request telegram - '11'
 
         void DecodeTelegram12_PimVerification(string telegram)
         {
@@ -362,128 +489,49 @@ namespace ToolsNetOpenProtocolClient
             txtPimCommunication.Text += Environment.NewLine;
         }
 
-        private void btnToolsnetOpenCloseConnection_Click(object sender, EventArgs e)
+        //TELEGRAM 13 - doesn't work: 
+        //When you send message after telegam 04 (result), server closes connection.
+        //When you send message without telegam 04 (result), server accepts message but graph is not stored or shown in ToolsNet.
+        string EncodeTelegram13_Graph()
         {
-            if (cmbControllerIpAddress.SelectedIndex == 0)
-            {
-                MessageBox.Show("Set Controller IP address");
-                cmbControllerIpAddress.Focus();
-                return;
-            }
+            var length = "0126"; //116 + 2 * [data Qty>16bits]
+            var command = "13"; //System description telegram
+            identifierSent++;
+            var tmpIdentifier = identifierSent.ToString().PadLeft(5, '0');
+            var lengthOfGeneralInfo = "116"; //48 + 24 * N° of Event Parameters
+            var systemType = "0003"; // Open Protocol - Undefined
+            var systemNumber = "1234"; //arbitraty;
+            var stationNumber = "5678"; //arbitraty;
+            var spindleNumber = "0001";
+            var programNumber = "0001";
+            var currentDateTime = DateTime.Now.ToString("yyyyMMddHHmmss");
+            resultSequenceNumber++;
+            var tmpEventSequenceNumber = eventSequenceNumber.ToString().PadLeft(5, '0');
+            var graphType = "0"; //0: Torque - 1: Angle
+            var bitShift = "0000000001"; // BitShift for trace as signed integer ??
+            var scaleFactorDom = "0000000001"; // Scale Factor Dom for trace as signed integer ???
+            var scaleFactorNom = "0000000001"; // Scale Factor Nom for trace as signed integer ???
+            var minLimit = "000001.0"; // Units depends on GraphType
+            var maxLimit = "000100.0"; // Units depends on GraphType
+            var angleOffset = "000000.0"; //degree
+            var sampleTime = "001000.0"; //Time in ms between samples in Trace Data part
+            var lengthOfTraceData = "0010"; // 0-8000, Length in bytes
+            //Trace Data is a packed Array of signed 16bit integers in network order.
+            // [Scale Factor] * [16 bit value] = actual float value
+            //Scale factor Calculation
+            //Scale factor = 2^[bitshift]* [Scale Factor Dom] / [Scale factor Nom]
+            var traceData = "0001020408"; //1,2,3,4,5
 
-            string data;
-            txtToolsnetCommunication.Text = "";
-            if (chkSimulateControllerMessages.Checked)
-            {
-                data = EncodeTelegram01_SystemDescription();
-                data = EncodeTelegram02_StationDescription();
-                data = EncodeTelegram04_Result();
-                data = EncodeTelegram09_ErrorEvent();
-                data = EncodeTelegram06_KeepAlive();
-            }
-            else
-            {
-                try
-                {
-                    toolsnetClientSocket = new System.Net.Sockets.TcpClient();
+            var telegram = length + command + tmpIdentifier + lengthOfGeneralInfo + systemType + systemNumber + stationNumber + spindleNumber +
+                            programNumber + currentDateTime + tmpEventSequenceNumber + graphType + bitShift + scaleFactorDom + scaleFactorNom +
+                            minLimit + maxLimit + angleOffset + sampleTime + lengthOfTraceData + traceData;
 
-                    //1. Controller connects to ToolsNet
-                    toolsnetClientSocket.Connect(txtToolsnetIpAdress.Text.Trim(), int.Parse(txtToolsnetPortNumber.Text));
-                    NetworkStream serverStream = toolsnetClientSocket.GetStream();
-                    txtToolsnetCommunication.Text = "Client Socket Program - Server Connected ..." + Environment.NewLine;
-                    Application.DoEvents();
+            txtToolsnetCommunication.Text += "Controller >> Server [02]: length: " + length + ", Command: " + command + ", Identifier: " + tmpIdentifier +
+                                        ", System Type: " + systemType + ", System Number: " + systemNumber + ", Station Number: " + stationNumber +
+                                        " [OTHER INFO] /// Raw Message: " + telegram;
 
-                    //2. send Telegam 01 (System Description):
-                    data = EncodeTelegram01_SystemDescription();
-                    byte[] outStream01 = System.Text.Encoding.ASCII.GetBytes(data);
-                    serverStream.Write(outStream01, 0, outStream01.Length);
-                    serverStream.Flush();
-                    Application.DoEvents();
-                    Thread.Sleep(1000);
-
-                    //3. get Telegram 05 (Ack):
-                    byte[] inStream05_1 = new byte[65537];
-                    serverStream.Read(inStream05_1, 0, (int)toolsnetClientSocket.ReceiveBufferSize);
-                    data = System.Text.Encoding.ASCII.GetString(inStream05_1);
-                    DecodeTelegramToolsnet05_Ack(data);
-                    Application.DoEvents();
-
-                    //4. Send Telegram 02 (Station Description):
-                    data = EncodeTelegram02_StationDescription();
-                    byte[] outStream02 = System.Text.Encoding.ASCII.GetBytes(data);
-                    serverStream.Write(outStream02, 0, outStream02.Length);
-                    serverStream.Flush();
-                    Application.DoEvents();
-                    Thread.Sleep(1000);
-
-                    //5. get Telegram 05 (Ack):
-                    byte[] inStream05_2 = new byte[65537];
-                    serverStream.Read(inStream05_2, 0, (int)toolsnetClientSocket.ReceiveBufferSize);
-                    data = System.Text.Encoding.ASCII.GetString(inStream05_2);
-                    DecodeTelegramToolsnet05_Ack(data);
-                    Application.DoEvents();
-
-                    //6. Send Telegram 04 (Result):
-                    data = EncodeTelegram04_Result();
-                    byte[] outStream04 = System.Text.Encoding.ASCII.GetBytes(data);
-                    serverStream.Write(outStream04, 0, outStream04.Length);
-                    serverStream.Flush();
-                    Application.DoEvents();
-                    Thread.Sleep(1000);
-
-                    //7. get Telegram 05 (Ack):
-                    byte[] inStream05_3 = new byte[65537];
-                    serverStream.Read(inStream05_3, 0, (int)toolsnetClientSocket.ReceiveBufferSize);
-                    data = System.Text.Encoding.ASCII.GetString(inStream05_3);
-                    DecodeTelegramToolsnet05_Ack(data);
-                    Application.DoEvents();
-                    
-                    //8. Send Telegram 09 (Error Event):
-                    data = EncodeTelegram09_ErrorEvent();
-                    byte[] outStream08 = System.Text.Encoding.ASCII.GetBytes(data);
-                    serverStream.Write(outStream08, 0, outStream08.Length);
-                    serverStream.Flush();
-                    Application.DoEvents();
-                    Thread.Sleep(1000);
-
-                    //9. get Telegram 05 (Ack):
-                    byte[] inStream05_4 = new byte[65537];
-                    serverStream.Read(inStream05_4, 0, (int)toolsnetClientSocket.ReceiveBufferSize);
-                    data = System.Text.Encoding.ASCII.GetString(inStream05_4);
-                    DecodeTelegramToolsnet05_Ack(data);
-                    Application.DoEvents();
-
-                    //test KeepAlive 3 times, every 5 seconds:
-                    for (int i = 0; i < 3; i++)
-                    {
-                        //10. Send Telegram 06 (KeepAlive):
-                        data = EncodeTelegram06_KeepAlive();
-                        byte[] outStream06 = System.Text.Encoding.ASCII.GetBytes(data);
-                        serverStream.Write(outStream06, 0, outStream06.Length);
-                        serverStream.Flush();
-                        Application.DoEvents();
-                        Thread.Sleep(1000);
-
-                        //11. get Telegram 05 (Ack):
-                        byte[] inStream05_5 = new byte[65537];
-                        serverStream.Read(inStream05_5, 0, (int)toolsnetClientSocket.ReceiveBufferSize);
-                        data = System.Text.Encoding.ASCII.GetString(inStream05_5);
-                        DecodeTelegramToolsnet05_Ack(data);
-                        Application.DoEvents();
-
-                        Thread.Sleep(5000);
-                    }
-
-                    //12. Controller Closes Connection to Server:
-                    serverStream.Close();
-                    toolsnetClientSocket.Close();
-                    txtToolsnetCommunication.Text += "Client Socket Program - Connection Closed...";
-                }
-                catch (Exception exc)
-                {
-                    txtToolsnetCommunication.Text += Environment.NewLine + Environment.NewLine + "ERROR: " + exc.Message;
-                }
-            }
+            txtToolsnetCommunication.Text += Environment.NewLine;
+            return telegram;
         }
     }
 }
