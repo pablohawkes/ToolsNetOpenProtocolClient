@@ -131,6 +131,7 @@ namespace ToolsNetOpenProtocolClient
                 try
                 {
                     toolsnetClientSocket = new System.Net.Sockets.TcpClient();
+                    byte[] inStream = new byte[65537];
 
                     //1. Controller connects to ToolsNet
                     toolsnetClientSocket.Connect(txtToolsnetIpAdress.Text.Trim(), int.Parse(txtToolsnetPortNumber.Text));
@@ -147,9 +148,8 @@ namespace ToolsNetOpenProtocolClient
                     Thread.Sleep(1000);
 
                     //3. get Telegram 05 (Ack):
-                    byte[] inStream05_1 = new byte[65537];
-                    serverStream.Read(inStream05_1, 0, (int)toolsnetClientSocket.ReceiveBufferSize);
-                    data = System.Text.Encoding.ASCII.GetString(inStream05_1);
+                    serverStream.Read(inStream, 0, (int)toolsnetClientSocket.ReceiveBufferSize);
+                    data = System.Text.Encoding.ASCII.GetString(inStream);
                     DecodeTelegramToolsnet05_Ack(data);
                     Application.DoEvents();
 
@@ -162,9 +162,8 @@ namespace ToolsNetOpenProtocolClient
                     Thread.Sleep(1000);
 
                     //5. get Telegram 05 (Ack):
-                    byte[] inStream05_2 = new byte[65537];
-                    serverStream.Read(inStream05_2, 0, (int)toolsnetClientSocket.ReceiveBufferSize);
-                    data = System.Text.Encoding.ASCII.GetString(inStream05_2);
+                    serverStream.Read(inStream, 0, (int)toolsnetClientSocket.ReceiveBufferSize);
+                    data = System.Text.Encoding.ASCII.GetString(inStream);
                     DecodeTelegramToolsnet05_Ack(data);
                     Application.DoEvents();
 
@@ -177,12 +176,13 @@ namespace ToolsNetOpenProtocolClient
                     Thread.Sleep(1000);
 
                     //7. get Telegram 05 (Ack):
-                    byte[] inStream05_3 = new byte[65537];
-                    serverStream.Read(inStream05_3, 0, (int)toolsnetClientSocket.ReceiveBufferSize);
-                    data = System.Text.Encoding.ASCII.GetString(inStream05_3);
+                    serverStream.Read(inStream, 0, (int)toolsnetClientSocket.ReceiveBufferSize);
+                    data = System.Text.Encoding.ASCII.GetString(inStream);
                     DecodeTelegramToolsnet05_Ack(data);
                     Application.DoEvents();
 
+                    /*
+                    //ToolsNet Closes connection when you send 09 after 04
                     //8. Send Telegram 09 (Error Event):
                     data = EncodeTelegram09_ErrorEvent();
                     byte[] outStream08 = System.Text.Encoding.ASCII.GetBytes(data);
@@ -192,13 +192,11 @@ namespace ToolsNetOpenProtocolClient
                     Thread.Sleep(1000);
 
                     //9. get Telegram 05 (Ack):
-                    byte[] inStream05_4 = new byte[65537];
-                    serverStream.Read(inStream05_4, 0, (int)toolsnetClientSocket.ReceiveBufferSize);
-                    data = System.Text.Encoding.ASCII.GetString(inStream05_4);
+                    serverStream.Read(inStream, 0, (int)toolsnetClientSocket.ReceiveBufferSize);
+                    data = System.Text.Encoding.ASCII.GetString(inStream);
                     DecodeTelegramToolsnet05_Ack(data);
                     Application.DoEvents();
-
-                    /*
+                    */
                     //test KeepAlive 3 times, every 5 seconds:
                     for (int i = 0; i < 3; i++)
                     {
@@ -211,16 +209,31 @@ namespace ToolsNetOpenProtocolClient
                         Thread.Sleep(1000);
 
                         //11. get Telegram 05 (Ack):
-                        byte[] inStream05_5 = new byte[65537];
-                        serverStream.Read(inStream05_5, 0, (int)toolsnetClientSocket.ReceiveBufferSize);
-                        data = System.Text.Encoding.ASCII.GetString(inStream05_5);
+                        serverStream.Read(inStream, 0, (int)toolsnetClientSocket.ReceiveBufferSize);
+                        data = System.Text.Encoding.ASCII.GetString(inStream);
                         DecodeTelegramToolsnet05_Ack(data);
                         Application.DoEvents();
 
                         Thread.Sleep(5000);
                     }
+
+                    /* NOT WORKS:
+                    //12. Send Telegram 13 (Graph):
+                    data = EncodeTelegram13_Graph();
+                    byte[] outStream13 = System.Text.Encoding.ASCII.GetBytes(data);
+                    serverStream.Write(outStream13, 0, outStream13.Length);
+                    serverStream.Flush();
+                    Application.DoEvents();
+                    Thread.Sleep(1000);
+
+                    //13. get Telegram 05 (Ack):
+                    serverStream.Read(inStream, 0, (int)toolsnetClientSocket.ReceiveBufferSize);
+                    data = System.Text.Encoding.ASCII.GetString(inStream);
+                    DecodeTelegramToolsnet05_Ack(data);
+                    Application.DoEvents();
                     */
-                    //12. Controller Closes Connection to Server:
+
+                    //14. Controller Closes Connection to Server:
                     serverStream.Close();
                     toolsnetClientSocket.Close();
                     txtToolsnetCommunication.Text += "Client Socket Program - Connection Closed...";
@@ -440,7 +453,7 @@ namespace ToolsNetOpenProtocolClient
 
         string EncodeTelegram09_ErrorEvent()
         {
-            var length = "0096"; //48 + 24 * N° of Event Parameters
+            var length = "0048"; //48 + 24 * N° of Event Parameters
             var command = "09"; //System description telegram
             identifierSent++;
             var tmpIdentifier = identifierSent.ToString().PadLeft(5, '0');
@@ -450,21 +463,21 @@ namespace ToolsNetOpenProtocolClient
             var currentDateTime = DateTime.Now.ToString("yyyyMMddHHmmss");
             eventSequenceNumber++;
             var tmpEventSequenceNumber = eventSequenceNumber.ToString().PadLeft(5, '0');
-            var errorCode = "00001"; //0-99999 >>>> codes defined on toolsnet database?
+            var errorCode = "00139"; //0-99999 >>>> codes defined on toolsnet database?
             var eventLevel = "001"; //0-999 >>>> codes defined on toolsnet database? >>>> Error / Info / Warning / others?
-            var numberOfEventParameters = "02"; //1-99
-
+            var numberOfEventParameters = "00"; //1-99
+            /*
             var eventParameterId1 = "002"; //001 and 003 aren't saved on database, why?
             var eventParameterValueType1 = "2"; //1-9 ?
             var eventParameterValue1 = "EVENT PARAM ICT 2".PadLeft(20, ' ');
             var eventParameterId2 = "004";
             var eventParameterValueType2 = "4"; //1-9 ?
             var eventParameterValue2 = "EVENT PARAM ICT 4".PadLeft(20, ' ');
-
+            */
             var telegram = length + command + tmpIdentifier + systemType + systemNumber + StationNumber + currentDateTime +
-                           tmpEventSequenceNumber + errorCode + eventLevel + numberOfEventParameters +
-                           eventParameterId1 + eventParameterValueType1 + eventParameterValue1 +
-                           eventParameterId2 + eventParameterValueType2 + eventParameterValue2;
+                           tmpEventSequenceNumber + errorCode + eventLevel + numberOfEventParameters; // +
+                           //eventParameterId1 + eventParameterValueType1 + eventParameterValue1 +
+                           //eventParameterId2 + eventParameterValueType2 + eventParameterValue2;
 
             txtToolsnetCommunication.Text += "Controller >> Server [02]: length: " + length + ", Command: " + command + ", Identifier: " + tmpIdentifier +
                                         ", System Type: " + systemType + ", System Number: " + systemNumber + ", Station Number: " + StationNumber +
@@ -494,7 +507,7 @@ namespace ToolsNetOpenProtocolClient
         //When you send message without telegam 04 (result), server accepts message but graph is not stored or shown in ToolsNet.
         string EncodeTelegram13_Graph()
         {
-            var length = "0126"; //116 + 2 * [data Qty>16bits]
+            var length = "0126"; //116 + 2 * [dataQty(16bits)]
             var command = "13"; //System description telegram
             identifierSent++;
             var tmpIdentifier = identifierSent.ToString().PadLeft(5, '0');
@@ -508,7 +521,7 @@ namespace ToolsNetOpenProtocolClient
             resultSequenceNumber++;
             var tmpEventSequenceNumber = eventSequenceNumber.ToString().PadLeft(5, '0');
             var graphType = "0"; //0: Torque - 1: Angle
-            var bitShift = "0000000001"; // BitShift for trace as signed integer ??
+            var bitShift = "0000000001"; // BitShift for trace as signed integer ???
             var scaleFactorDom = "0000000001"; // Scale Factor Dom for trace as signed integer ???
             var scaleFactorNom = "0000000001"; // Scale Factor Nom for trace as signed integer ???
             var minLimit = "000001.0"; // Units depends on GraphType
