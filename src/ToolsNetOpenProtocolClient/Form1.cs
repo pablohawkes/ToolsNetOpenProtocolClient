@@ -119,12 +119,12 @@ namespace ToolsNetOpenProtocolClient
             txtToolsnetCommunication.Text = "";
             if (chkSimulateControllerMessages.Checked)
             {
-                data = EncodeTelegram01_SystemDescription();
-                data = EncodeTelegram02_StationDescription();
-                data = EncodeTelegram04_Result();
-                data = EncodeTelegram09_ErrorEvent();
-                data = EncodeTelegram13_Graph();
-                data = EncodeTelegram06_KeepAlive();
+                EncodeTelegram01_SystemDescription();
+                EncodeTelegram02_StationDescription();
+                EncodeTelegram04_Result();
+                EncodeTelegram09_ErrorEvent();
+                EncodeTelegram13_Graph();
+                EncodeTelegram06_KeepAlive();
             }
             else
             {
@@ -182,7 +182,20 @@ namespace ToolsNetOpenProtocolClient
                     Application.DoEvents();
 
                     /*
-                    //ToolsNet Closes connection when you send 09 after 04
+                    //12. Send Telegram 13 (Graph):
+                    data = EncodeTelegram13_Graph();
+                    byte[] outStream13 = System.Text.Encoding.ASCII.GetBytes(data);
+                    serverStream.Write(outStream13, 0, outStream13.Length);
+                    serverStream.Flush();
+                    Application.DoEvents();
+                    Thread.Sleep(1000);
+
+                    //13. get Telegram 05 (Ack):
+                    serverStream.Read(inStream, 0, (int)toolsnetClientSocket.ReceiveBufferSize);
+                    data = System.Text.Encoding.ASCII.GetString(inStream);
+                    DecodeTelegramToolsnet05_Ack(data);
+                    Application.DoEvents();
+
                     //8. Send Telegram 09 (Error Event):
                     data = EncodeTelegram09_ErrorEvent();
                     byte[] outStream08 = System.Text.Encoding.ASCII.GetBytes(data);
@@ -197,6 +210,7 @@ namespace ToolsNetOpenProtocolClient
                     DecodeTelegramToolsnet05_Ack(data);
                     Application.DoEvents();
                     */
+                    /*
                     //test KeepAlive 3 times, every 5 seconds:
                     for (int i = 0; i < 3; i++)
                     {
@@ -216,21 +230,6 @@ namespace ToolsNetOpenProtocolClient
 
                         Thread.Sleep(5000);
                     }
-
-                    /* NOT WORKS:
-                    //12. Send Telegram 13 (Graph):
-                    data = EncodeTelegram13_Graph();
-                    byte[] outStream13 = System.Text.Encoding.ASCII.GetBytes(data);
-                    serverStream.Write(outStream13, 0, outStream13.Length);
-                    serverStream.Flush();
-                    Application.DoEvents();
-                    Thread.Sleep(1000);
-
-                    //13. get Telegram 05 (Ack):
-                    serverStream.Read(inStream, 0, (int)toolsnetClientSocket.ReceiveBufferSize);
-                    data = System.Text.Encoding.ASCII.GetString(inStream);
-                    DecodeTelegramToolsnet05_Ack(data);
-                    Application.DoEvents();
                     */
 
                     //14. Controller Closes Connection to Server:
@@ -299,7 +298,11 @@ namespace ToolsNetOpenProtocolClient
 
         string EncodeTelegram04_Result()
         {
-            var length = "0278"; //80 + 70 * spindle rundown + 28 * Additional Vin + 72 * Additional Parameter
+            var SpindleRundownQty = 2;
+            var AdditionalVinQty = 2;
+            var AdditionalParameterQty = 2;
+
+            var length = (80 + 70 * SpindleRundownQty + 29 * AdditionalVinQty + 72 * AdditionalParameterQty).ToString().PadLeft(4, '0'); //80 + 70 * spindle rundown + 29 * Additional Vin + 72 * Additional Parameter
             var command = "04"; //System description telegram
             identifierSent++;
             var tmpIdentifier = identifierSent.ToString().PadLeft(5, '0');
@@ -310,54 +313,93 @@ namespace ToolsNetOpenProtocolClient
             var currentDateTime = DateTime.Now.ToString("yyyyMMddHHmmss");
             resultSequenceNumber++;
             var tmpResultSequenceNumber = resultSequenceNumber.ToString().PadLeft(5, '0');
-            var vin = "8AP359MU123456".PadLeft(25, ' ');
+            var vin = "ABC123MU123456".PadLeft(25, ' ');
 
-            var NumberOfSpindles = "0001";
+            //Parts Length:
+            var NumberOfSpindles = SpindleRundownQty.ToString("0000");
             var lengthOfSpindleInfo = "70";             //Fixed
-            var NumberOfAdditionalVin = "02";
+            var NumberOfAdditionalVin = AdditionalVinQty.ToString("00");
             var lengthOfAdditionalVin = "29";           //Fixed
-            var NumberOfAdditionalParameter = "001";
+            var NumberOfAdditionalParameter = AdditionalParameterQty.ToString("000");
             var lengthOfAdditionalParameter = "72";     //Fixed
 
-            //Spindle
-            var spindleNumber = "0001";
-            var spindleSerialNumber = "SPINDLEICT".PadLeft(10, ' ');
-            var programNumber = "0001";
-            var overallStatus = "1"; //0: OK - 1: NOK
-            var torqueLowLimit = "00009.00";
-            var finalTorque = "00008.00";
-            var torqueStatus = "3"; //0: OK - 1: NOK - 2: Low - 3: High
-            var torqueHighLimit = "00010.00";
-            var angleLowLimit = "000050.0";
-            var finalAngle = "000049.5";
-            var angleStatus = "2"; //0: OK - 1: NOK - 2: Low - 3: High
-            var angleHighLimit = "000070.0";
-            var timeStatus = "1"; //0: OK - 1: NOK - 2: Low - 3: High
+            //Spindle 1:
+            var spindleNumber1 = "0001";
+            var spindleSerialNumber1 = "SPINDLE 1".PadLeft(10, ' ');
+            var programNumber1 = "0001";
+            var overallStatus1 = "0"; //0: OK - 1: NOK
+            var torqueLowLimit1 = "00009.00";
+            var finalTorque1 = "00009.50";
+            var torqueStatus1 = "0"; //0: OK - 1: NOK - 2: Low - 3: High
+            var torqueHighLimit1 = "00010.00";
+            var angleLowLimit1 = "000050.0";
+            var finalAngle1 = "000060.0";
+            var angleStatus1 = "0"; //0: OK - 1: NOK - 2: Low - 3: High
+            var angleHighLimit1 = "000070.0";
+            var timeStatus1 = "0"; //0: OK - 1: NOK - 2: Low - 3: High
+
+            //Spindle 2:
+            var spindleNumber2 = "0002";
+            var spindleSerialNumber2 = "SPINDLE 2".PadLeft(10, ' ');
+            var programNumber2 = "0001";
+            var overallStatus2 = "0"; //0: OK - 1: NOK
+            var torqueLowLimit2 = "00010.00";
+            var finalTorque2 = "00011.00";
+            var torqueStatus2 = "0"; //0: OK - 1: NOK - 2: Low - 3: High
+            var torqueHighLimit2 = "00012.00";
+            var angleLowLimit2 = "000050.0";
+            var finalAngle2 = "000075.0";
+            var angleStatus2 = "0"; //0: OK - 1: NOK - 2: Low - 3: High
+            var angleHighLimit2 = "000100.0";
+            var timeStatus2 = "3"; //0: OK - 1: NOK - 2: Low - 3: High
 
             //Additional VIN:
             var vinIdentifier1 = "0001";
-            var vinNumber1 = "8AP359MU000001".PadLeft(25, ' ');
+            var vinNumber1 = "ABC123MU000001".PadLeft(25, ' ');
             var vinIdentifier2 = "0002";
-            var vinNumber2 = "8AP359MU000002".PadLeft(25, ' ');
+            var vinNumber2 = "ABC123MU000002".PadLeft(25, ' ');
 
-            //Parameter Info
-            var parameterSpindleNumber = "0000";
-            var parameterProgramNumber = "0000";
-            var parameterId = "00001";
-            var parameterName = "PARAMETER ICT - TIME".PadLeft(25, ' ');
-            var parameterValue = "12.754".PadLeft(25, ' '); //ToolsNet seems to show only 2 decimals on Real >> Sent 12.754, Shown 12.75
-            var parameterType = "2"; //0: String - 1: Integer - 2: Real
-            var parameterUnit = "seg".PadLeft(6, ' ');
-            var parameterStep = "00";
+            //PARAMETER INFO: Sent to ToolsNet, but nothing happens:
+            //Parameter Info:
+            var parameterSpindleNumber1 = "0000"; //Spindle Number 0 is general Parameter number
+            var parameterProgramNumber1 = "0001";
+            var parameterId1 = "00001";
+            var parameterName1 = "PARAMETER 1".PadLeft(25, ' ');
+            var parameterValue1 = "123.45".PadLeft(25, ' '); //ToolsNet seems to show only 2 decimals on Real >> Sent 12.754, Shown 12.75
+            var parameterType1 = "2"; //0: String - 1: Integer - 2: Real
+            var parameterUnit1 = "seg".PadLeft(6, ' ');
+            var parameterStep1 = "00"; //Step no 0 are general parameters for the result. All other data is step specific.
+
+            //Parameter Info:
+            var parameterSpindleNumber2 = "0002"; //Spindle Number 0 is general Parameter number
+            var parameterProgramNumber2 = "0002";
+            var parameterId2 = "00002";
+            var parameterName2 = "PARAMETER 2".PadLeft(25, ' ');
+            var parameterValue2 = "543.21".PadLeft(25, ' '); //ToolsNet seems to show only 2 decimals on Real >> Sent 12.754, Shown 12.75
+            var parameterType2 = "2"; //0: String - 1: Integer - 2: Real
+            var parameterUnit2 = "mts".PadLeft(6, ' ');
+            var parameterStep2 = "01"; //Step no 0 are general parameters for the result. All other data is step specific.
 
             var telegram = length + command + tmpIdentifier + lengthGeneralInfo + systemType + systemNumber + StationNumber + currentDateTime +
                            tmpResultSequenceNumber + vin + NumberOfSpindles + lengthOfSpindleInfo + NumberOfAdditionalVin + lengthOfAdditionalVin +
                            NumberOfAdditionalParameter + lengthOfAdditionalParameter +
-                           spindleNumber + spindleSerialNumber + programNumber + overallStatus +
-                           torqueLowLimit + finalTorque + torqueStatus + torqueHighLimit +
-                           angleLowLimit + finalAngle + angleStatus + angleHighLimit + timeStatus +
-                           vinIdentifier1 + vinNumber1 + vinIdentifier2 + vinNumber2 +
-                           parameterSpindleNumber + parameterProgramNumber + parameterId + parameterName + parameterValue + parameterType + parameterUnit + parameterStep;
+                           //Spindle 1:
+                           spindleNumber1 + spindleSerialNumber1 + programNumber1 + overallStatus1 +
+                           torqueLowLimit1 + finalTorque1 + torqueStatus1 + torqueHighLimit1 +
+                           angleLowLimit1 + finalAngle1 + angleStatus1 + angleHighLimit1 + timeStatus1 +
+                           //Spindle 2:
+                           spindleNumber2 + spindleSerialNumber2 + programNumber2 + overallStatus2 +
+                           torqueLowLimit2 + finalTorque2 + torqueStatus2 + torqueHighLimit2 +
+                           angleLowLimit2 + finalAngle2 + angleStatus2 + angleHighLimit2 + timeStatus2 +
+                           //vin:
+                           vinIdentifier1 + vinNumber1 +
+                           vinIdentifier2 + vinNumber2 +
+                           //Parameter 1:
+                           parameterSpindleNumber1 + parameterProgramNumber1 + parameterId1 + parameterName1 +
+                           parameterValue1 + parameterType1 + parameterUnit1 + parameterStep1 +
+                           //Parameter 2:
+                           parameterSpindleNumber2 + parameterProgramNumber2 + parameterId2 + parameterName2 +
+                           parameterValue2 + parameterType2 + parameterUnit2 + parameterStep2;
 
             txtToolsnetCommunication.Text += "Controller >> Server [02]: length: " + length + ", Command: " + command + ", Identifier: " + tmpIdentifier +
                                         ", System Type: " + systemType + ", System Number: " + systemNumber + ", Station Number: " + StationNumber +
@@ -366,7 +408,6 @@ namespace ToolsNetOpenProtocolClient
             txtToolsnetCommunication.Text += Environment.NewLine;
             return telegram;
         }
-
 
         string EncodeTelegramPim05_Ack()
         {
@@ -476,8 +517,8 @@ namespace ToolsNetOpenProtocolClient
             */
             var telegram = length + command + tmpIdentifier + systemType + systemNumber + StationNumber + currentDateTime +
                            tmpEventSequenceNumber + errorCode + eventLevel + numberOfEventParameters; // +
-                           //eventParameterId1 + eventParameterValueType1 + eventParameterValue1 +
-                           //eventParameterId2 + eventParameterValueType2 + eventParameterValue2;
+                                                                                                      //eventParameterId1 + eventParameterValueType1 + eventParameterValue1 +
+                                                                                                      //eventParameterId2 + eventParameterValueType2 + eventParameterValue2;
 
             txtToolsnetCommunication.Text += "Controller >> Server [02]: length: " + length + ", Command: " + command + ", Identifier: " + tmpIdentifier +
                                         ", System Type: " + systemType + ", System Number: " + systemNumber + ", Station Number: " + StationNumber +
@@ -502,9 +543,7 @@ namespace ToolsNetOpenProtocolClient
             txtPimCommunication.Text += Environment.NewLine;
         }
 
-        //TELEGRAM 13 - doesn't work: 
-        //When you send message after telegam 04 (result), server closes connection.
-        //When you send message without telegam 04 (result), server accepts message but graph is not stored or shown in ToolsNet.
+        //TELEGRAM 13 - Graph:
         string EncodeTelegram13_Graph()
         {
             var length = "0126"; //116 + 2 * [dataQty(16bits)]
@@ -518,7 +557,7 @@ namespace ToolsNetOpenProtocolClient
             var spindleNumber = "0001";
             var programNumber = "0001";
             var currentDateTime = DateTime.Now.ToString("yyyyMMddHHmmss");
-            resultSequenceNumber++;
+            //resultSequenceNumber++; // Must be the same as RESULT
             var tmpEventSequenceNumber = eventSequenceNumber.ToString().PadLeft(5, '0');
             var graphType = "0"; //0: Torque - 1: Angle
             var bitShift = "0000000001"; // BitShift for trace as signed integer ???
